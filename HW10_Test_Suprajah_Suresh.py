@@ -1,5 +1,5 @@
 import unittest
-from HW10 import Repository
+from HW10_Suprajah_Suresh import Repository
 
 class Test_Repository(unittest.TestCase):
         def test_instructor_data(self):
