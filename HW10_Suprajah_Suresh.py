@@ -62,6 +62,8 @@ class Repository:
         student_table.field_names = ['CWID', 'Name', 'Major', 'Completed Courses','Required Courses', 'Required Electives']
         for k, v in self.student_data.items():
             cwid, name, major, course_grades = v.return_student_row()
+            if major not in self.majors_data.keys():
+                raise ValueError("Major not in majors.txt file!")
             required = self.majors_data[major].remaining_required(course_grades)
             elective = self.majors_data[major].remaining_electives(course_grades)
             student_table.add_row([cwid, name, major, sorted(course_grades.keys()), required, elective])
