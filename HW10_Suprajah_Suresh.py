@@ -8,6 +8,7 @@ import os
 from collections import defaultdict
 from prettytable import PrettyTable
 from HW08_Suprajah_Suresh import file_reading_gen
+import sqlite3
 
 class Repository:
     def __init__(self, dir_path):
@@ -27,34 +28,62 @@ class Repository:
     def read_student_data(self):
         ''' Reads student.txt file and initilizes the values '''
         file_path =  os.path.join(self.dir_path,'students.txt')
-        student_entry = list(file_reading_gen(file_path, 3, sep = ';', header = True))
-        for entry in student_entry:
-            self.student_data[entry[0]] = Student(entry[0], entry[1], entry[2])
+        try:
+            student_entry = list(file_reading_gen(file_path, 3, sep = '\t', header = True))
+        except FileNotFoundError:
+            print("Student file not found!")
+        except ValueError as error_msg:
+            print(error_msg)
+        for cwid, name, major in student_entry:
+            self.student_data[cwid] = Student(cwid, name, major)
     
     def read_instructor_data(self):
         ''' Reads instructor.txt file and initilizes the values '''
         file_path =  os.path.join(self.dir_path,'instructors.txt')
-        instructor_entry = list(file_reading_gen(file_path, 3, sep='|', header = True))
-        for entry in instructor_entry:
-            self.instructor_data[entry[0]] = Instructor(entry[0], entry[1], entry[2])
+        try:
+            instructor_entry = list(file_reading_gen(file_path, 3, sep = '\t', header = True))
+        except FileNotFoundError:
+            print("Instructor file not found!")
+        except ValueError as error_msg:
+            print(error_msg)
+        for cwid, name, dept  in instructor_entry:
+            self.instructor_data[cwid] = Instructor(cwid, name, dept)
 
     def read_grades_data(self):
         ''' Reads grades.txt file and updates containers in student and instructor class '''
         file_path =  os.path.join(self.dir_path,'grades.txt')
-        grade_entry = list(file_reading_gen(file_path, 4, sep='|', header = True))
-        for entry in grade_entry:
-            scwid, course, grade, icwid = entry
-            self.student_data[scwid].add_course_grades(course, grade)
-            self.instructor_data[icwid].add_student_count(course)
+        try:
+            grade_entry = list(file_reading_gen(file_path, 4, sep='\t', header = True))
+        except FileNotFoundError:
+            print("Grades file not found!")
+        except ValueError as error_msg:
+            print(error_msg)
+        for scwid, course, grade, icwid in grade_entry:
+            if scwid in self.student_data.keys():
+                self.student_data[scwid].add_course_grades(course, grade)
+            else:
+                print("Student present in grades file but not in students file")
+            if icwid in self.instructor_data.keys():
+                self.instructor_data[icwid].add_student_count(course)
+            else:
+                print("Instructor present in grades file but not in instructor file")
     
     def read_majors_data(self):
         '''Reads majors.txt and creates the appropriate table'''
         file_path =  os.path.join(self.dir_path,'majors.txt')
-        majors_entry = list(file_reading_gen(file_path, 3, sep='\t', header = True))
-        for entry in majors_entry:
-            if entry[0] not in self.majors_data.keys():
-                self.majors_data[entry[0]] = Majors(entry[0])
-            self.majors_data[entry[0]].add_course_for_major(entry[1], entry[2])
+        try:
+            majors_entry = list(file_reading_gen(file_path, 3, sep='\t', header = True))
+        except FileNotFoundError:
+            print("Majors file not found!")
+        except ValueError as error_msg:
+            print(error_msg)
+        for dept, type_sub, course in majors_entry:
+            if dept not in self.majors_data.keys():
+                self.majors_data[dept] = Majors(dept)
+            try:
+                self.majors_data[dept].add_course_for_major(type_sub, course)
+            except ValueError as e:
+                print(e)
 
     def print_student_table(self):
         ''' Prints the student data using pretty table'''
@@ -63,7 +92,7 @@ class Repository:
         for k, v in self.student_data.items():
             cwid, name, major, course_grades = v.return_student_row()
             if major not in self.majors_data.keys():
-                raise ValueError("Major not in majors.txt file!")
+                print("Major not in majors.txt file!")
             required = self.majors_data[major].remaining_required(course_grades)
             elective = self.majors_data[major].remaining_electives(course_grades)
             student_table.add_row([cwid, name, major, sorted(course_grades.keys()), required, elective])
@@ -150,7 +179,10 @@ class Majors:
     
     def remaining_electives(self, course_grades):
         ''' Computes the elective courses remaining'''
-        return self.elective - set([key for key,value in course_grades.items() if self.check_passing_status(value)])
+        if self.elective.intersection(set([key for key,value in course_grades.items() if self.check_passing_status(value)])):
+            return {}
+        else:
+            return self.elective
     
     def check_passing_status(self, grade):
         ''' Checks if a student has passed'''
